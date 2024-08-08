@@ -53,7 +53,7 @@
     1. 打开cmd
     2. cd到项目文件目录
     3. 在config.ini文件中填写你的cookie
-    4. 输入 python/python3 main.py
+    4. python main/spider.py
 
 #### 选项1
 

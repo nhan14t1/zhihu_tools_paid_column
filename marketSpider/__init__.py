@@ -79,13 +79,13 @@ class MarketSpider:
             "manuscriptData"
         ]["pTagList"] # 获取内容
         
-        self.marketTitle = content["appContext"]["__connectedAutoFetch"]["manuscript"]["data"][
+        self.marketTitle = "result_" + content["appContext"]["__connectedAutoFetch"]["manuscript"]["data"][
             "manuscriptData"
-        ]["title"] + ".txt" # 获取标题
+        ]["title"] + ".html" # 获取标题
         with open(self.marketTitle + ".temp", "w", encoding="utf-8") as f:
             for item in contents:
                 f.write(item + "\n")
-        logging.info("内容获取成功！")
+        logging.info("Get text successfully！")
         return True
 
     # 替换正文中的文字

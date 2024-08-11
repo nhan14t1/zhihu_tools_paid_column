@@ -75,12 +75,12 @@ if __name__ == "__main__":
     logging.info("=====================================")
 
     while 1:
-        logging.info("请输入你的选项: ")
+        logging.info("Select one option: ")
         logging.info("1. 爬取严选的单个问题")
-        logging.info("2. 爬取书的单个章节")
+        logging.info("2. Get paid_column text")
         logging.info("3. 爬取整本书")
         logging.info("4. 关键词爬取")
-        logging.info("0. 退出")
+        logging.info("0. Exit")
         spider._zhihuSpider__option = input()
         if spider._zhihuSpider__option == "0":
             break

@@ -1,0 +1,4 @@
+result_*.html
+result_*.temp
+market.html
+*/__pycache__/*

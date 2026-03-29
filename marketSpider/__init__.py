@@ -21,6 +21,17 @@ class MarketSpider:
         self.glyfDict = {}
         self.url = None  # 保存初始URL
 
+    def cleanup_generated_files(self):
+        if os.path.exists("font_preview.png"):
+            os.remove("font_preview.png")
+        if os.path.isdir("images"):
+            for file_name in os.listdir("images"):
+                file_path = os.path.join("images", file_name)
+                if os.path.isfile(file_path):
+                    os.remove(file_path)
+            if not os.listdir("images"):
+                os.rmdir("images")
+
     def getMarketHtml(self, url):
         self.url = url  # 保存URL
         response = requests.get(url, verify=False, headers=self.header)
@@ -88,13 +99,28 @@ class MarketSpider:
         content = etree.HTML(html)
         content = content.xpath('string(//*[@id="resolved"])')
         content = json.loads(content)
-        contents = content["appContext"]["__connectedAutoFetch"]["manuscript"]["data"][
+        manuscript_data = content["appContext"]["__connectedAutoFetch"]["manuscript"]["data"][
             "manuscriptData"
-        ]["pTagList"]  # 获取内容
+        ]
+        contents = manuscript_data.get("pTagList", [])
 
-        self.marketTitle = content["appContext"]["__connectedAutoFetch"]["manuscript"]["data"][
-                               "manuscriptData"
-                           ]["title"] + ".txt"  # 获取标题
+        if not contents:
+            manuscript_html = manuscript_data.get("manuscript", "")
+            if manuscript_html:
+                manuscript_root = etree.HTML(f"<body>{manuscript_html}</body>")
+                paragraphs = manuscript_root.xpath("//p")
+                contents = [
+                    "".join(paragraph.xpath(".//text()")).replace("\xa0", " ").strip()
+                    for paragraph in paragraphs
+                ]
+                contents = [item for item in contents if item]
+                logging.info("pTagList 为空，已回退到 manuscript HTML 提取正文。")
+
+        if not contents:
+            logging.error("正文内容为空，未找到可用的 pTagList 或 manuscript。")
+            return False
+
+        self.marketTitle = manuscript_data["title"] + ".txt"  # 获取标题
         with open(self.marketTitle + ".temp", "w", encoding="utf-8") as f:
             for item in contents:
                 f.write(item + "\n")
@@ -115,7 +141,7 @@ class MarketSpider:
     def parse(self):
         font_preview = fontPreview.FontPreview()
         font_preview.set_market_spider(self)  # 关联MarketSpider实例
-        self.glyfDict = font_preview.preview("font.woff", "images")
+        self.glyfDict = font_preview.preview("font.woff", "images", remove_files=False)
         logging.info(f"字体映射表: {self.glyfDict}")  # 打印映射表以验证
         with open(self.marketTitle + ".temp", "r", encoding="utf-8") as f:
             content = f.read()
@@ -125,6 +151,7 @@ class MarketSpider:
         logging.info("文章解析成功！")
 
     def spider(self, url):
+        self.cleanup_generated_files()
         self.getMarketHtml(url)
         self.getFontFile()
         if self.getContent():

@@ -1,25 +1,39 @@
-# 此类用于爬取链接中带有market的数据
-import os, sys
+import base64
+import json
+import logging
+import os
+import re
+import sys
 
 import requests
 from lxml import etree
-import re
-import base64
-import sys
-import os
-import json
-import logging
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 import fontPreview
 
 
 class MarketSpider:
-    def __init__(self, header) -> None:
+    def __init__(self, header, output_dir=None, filename_prefix=None) -> None:
         self.header = header
         self.marketTitle = None
+        self.marketFileStem = None
         self.glyfDict = {}
-        self.url = None  # 保存初始URL
+        self.url = None
+        self.output_dir = output_dir
+        self.filename_prefix = filename_prefix
+
+    def sanitize_filename(self, name):
+        sanitized = re.sub(r'[<>:"/\\|?*]', "_", name).strip()
+        return sanitized.rstrip(". ") or "untitled"
+
+    def build_output_stem(self, title):
+        safe_title = self.sanitize_filename(title)
+        if self.filename_prefix:
+            safe_title = f"{self.filename_prefix}-{safe_title}"
+        if self.output_dir:
+            os.makedirs(self.output_dir, exist_ok=True)
+            return os.path.join(self.output_dir, safe_title)
+        return safe_title
 
     def cleanup_generated_files(self):
         if os.path.exists("font_preview.png"):
@@ -33,25 +47,20 @@ class MarketSpider:
                 os.rmdir("images")
 
     def getMarketHtml(self, url):
-        self.url = url  # 保存URL
+        self.url = url
         response = requests.get(url, verify=False, headers=self.header)
         try:
             with open("market.html", "w", encoding="utf-8") as f:
                 f.write(response.text)
             logging.info("文章请求成功！")
         except Exception as e:
-            logging.error("文章请求失败：", str(e))
+            logging.error("文章请求失败：%s", str(e))
 
     def re_fetch_article(self):
-        """
-        重新请求文章，更新HTML和字体文件
-        """
         logging.info("重新请求文章...")
-        self.getMarketHtml(self.url)  # 重新下载HTML
-        self.getFontFile()  # 重新获取字体文件
+        self.getMarketHtml(self.url)
+        self.getFontFile()
         self.getContent()
-
-        # 获取字体文件并且下载
 
     def getFontFile(self, htmlFile="market.html"):
         with open(htmlFile, "r", encoding="utf-8") as f:
@@ -64,30 +73,22 @@ class MarketSpider:
         if len(parts) != 2:
             logging.error("无效的字体数据URL！")
             return
-        # 获取数据部分
         data = parts[1]
         try:
-            # 将数据进行解码
             data_bytes = base64.b64decode(data)
-            # 将解码后的数据保存到文件
             with open("font.woff", "wb") as file:
                 file.write(data_bytes)
             logging.info("字体文件下载成功！")
         except Exception as e:
-            logging.error("字体文件下载失败:", str(e))
+            logging.error("字体文件下载失败: %s", str(e))
 
-    # 获取第三个字体文件。应该为被动调用
     def get_third_font_face(self, font_re):
         font_face_blocks = re.findall(r"@font-face\s*{[^}]*}", font_re)
-        # 获取第三个 @font-face 规则块
         if len(font_face_blocks) >= 3:
-            font_face_blocks = re.findall(r"@font-face\s*{[^}]*}", font_re)
             font_url = re.search(r"src:\s*url\(([^)]+)\)", font_face_blocks[2]).group(1)
             return font_url
-        else:
-            return ''
+        return ""
 
-    # 获取正文
     def getContent(self, htmlFile="market.html") -> bool:
         with open(htmlFile, "r", encoding="utf-8") as f:
             html = f.read()
@@ -120,14 +121,14 @@ class MarketSpider:
             logging.error("正文内容为空，未找到可用的 pTagList 或 manuscript。")
             return False
 
-        self.marketTitle = manuscript_data["title"] + ".txt"  # 获取标题
-        with open(self.marketTitle + ".temp", "w", encoding="utf-8") as f:
+        self.marketTitle = manuscript_data["title"]
+        self.marketFileStem = self.build_output_stem(self.marketTitle)
+        with open(self.marketFileStem + ".temp", "w", encoding="utf-8") as f:
             for item in contents:
                 f.write(item + "\n")
         logging.info("内容获取成功！")
         return True
 
-    # 替换正文中的文字
     def replace_text(self, text, replacement_dict):
         result = []
         for char in text:
@@ -137,16 +138,15 @@ class MarketSpider:
                 result.append(char)
         return "".join(result)
 
-    # 解析字体文件
     def parse(self):
         font_preview = fontPreview.FontPreview()
-        font_preview.set_market_spider(self)  # 关联MarketSpider实例
+        font_preview.set_market_spider(self)
         self.glyfDict = font_preview.preview("font.woff", "images", remove_files=False)
-        logging.info(f"字体映射表: {self.glyfDict}")  # 打印映射表以验证
-        with open(self.marketTitle + ".temp", "r", encoding="utf-8") as f:
+        logging.info(f"字体映射表: {self.glyfDict}")
+        with open(self.marketFileStem + ".temp", "r", encoding="utf-8") as f:
             content = f.read()
         content = self.replace_text(content, self.glyfDict)
-        with open(self.marketTitle, "w", encoding="utf-8") as f:
+        with open(self.marketFileStem + ".txt", "w", encoding="utf-8") as f:
             f.write(content)
         logging.info("文章解析成功！")
 
@@ -156,4 +156,3 @@ class MarketSpider:
         self.getFontFile()
         if self.getContent():
             self.parse()
-

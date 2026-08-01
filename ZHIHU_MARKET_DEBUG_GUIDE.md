@@ -1,189 +1,189 @@
 # Zhihu Market Crawl Debug Guide
 
-Tai lieu nay ghi lai cac quy luat va kinh nghiem sua loi cho chuc nang crawl truyen Zhihu bang:
+Tài liệu này ghi lại các quy luật và kinh nghiệm sửa lỗi cho chức năng crawl truyện Zhihu bằng:
 
 ```bash
 python main/spider.py
 ```
 
-Sau do chon menu item `2`.
+Sau đó chọn menu item `2`.
 
-Muc tieu cua tai lieu:
-- Giai thich luong chay hien tai
-- Ghi lai nhung diem de vo khi Zhihu thay doi nho
-- Dua ra quy trinh debug nhanh de sua lai ma khong can phan tich tu dau
+Mục tiêu của tài liệu:
+- Giải thích luồng chạy hiện tại
+- Ghi lại những điểm dễ vỡ khi Zhihu thay đổi nhỏ
+- Đưa ra quy trình debug nhanh để sửa lại mà không cần phân tích từ đầu
 
-## 1. Luong chay hien tai
+## 1. Luồng chạy hiện tại
 
-File chinh:
+File chính:
 - `main/spider.py`
 - `marketSpider/__init__.py`
 - `fontPreview/__init__.py`
 
-Luot chay:
-1. `MarketSpider.spider(url)` duoc goi.
-2. Chuong trinh xoa file sinh ra cua lan truoc:
+Luot chạy:
+1. `MarketSpider.spider(url)` được gọi.
+2. Chương trình xóa file sinh ra của lần trước:
    - `font_preview.png`
-   - thu muc `images/`
-3. Request bai viet va luu vao `market.html`.
-4. Trich `font.woff` tu CSS `@font-face` trong `market.html`.
-5. Trich noi dung bai viet va ghi vao file `*.txt.temp`.
-6. Phan tich `font.woff`, sinh:
+   - thư mục `images/`
+3. Request bài viết và lưu vào `market.html`.
+4. Trích `font.woff` từ CSS `@font-face` trong `market.html`.
+5. Trích nội dung bài viết và ghi vào file `*.txt.temp`.
+6. Phân tích `font.woff`, sinh:
    - `font_preview.png`
-   - cac anh glyph trong `images/`
-7. OCR/match de tao `glyfDict`.
-8. Replace ky tu trong file `*.txt.temp` va ghi ra `*.txt`.
+   - các ảnh glyph trong `images/`
+7. OCR/match để tạo `glyfDict`.
+8. Replace ký tự trong file `*.txt.temp` và ghi ra `*.txt`.
 
-## 2. Cac file quan trong khi debug
+## 2. Các file quan trọng khi debug
 
-Khi co loi, day la 4 nhom file can giu lai:
+Khi có lỗi, đây là 4 nhóm file cần giữ lại:
 
 - `market.html`
 - `font.woff`
 - `font_preview.png`
-- thu muc `images/`
+- thư mục `images/`
 
-Va neu can kiem tra ket qua:
+Và nếu cần kiểm tra kết quả:
 - `*.txt.temp`
 - `*.txt`
 
-Y nghia:
+Ý nghĩa:
 
 ### `market.html`
-- Chua payload goc tra ve tu Zhihu
-- Day la noi can kiem tra dau tien neu file `.txt.temp` rong
+- Chứa payload gốc trả về từ Zhihu
+- Đây là nơi cần kiểm tra đầu tiên nếu file `.txt.temp` rỗng
 
 ### `font_preview.png`
-- Anh tong hop tat ca glyph cua font obfuscation trong lan request hien tai
-- Dung de nhin bang mat xem cac ma dang map toi ky tu nao
+- Ảnh tổng hợp tất cả glyph của font obfuscation trong lần request hiện tại
+- Dùng để nhìn bằng mắt xem các mã đang map tới ký tự nào
 
 ### `images/*.png`
-- Moi file la mot glyph don
-- Ten file la ma Unicode gia trong lan request hien tai, vi du `300D.png`, `FF1F.png`
-- Ma nay thay doi theo tung lan crawl, khong on dinh
+- Mỗi file là một glyph đơn
+- Tên file là mã Unicode giả trong lần request hiện tại, ví dụ `300D.png`, `FF1F.png`
+- Mã này thay đổi theo từng lần crawl, không ổn định
 
 ### `samples/*.png`
-- Bo anh mau cho dau cau/ky tu dac biet de hay OCR nham
-- Ten file phai la chinh ky tu that, vi du:
+- Bộ ảnh mẫu cho dấu câu/ký tự đặc biệt để hay OCR nhầm
+- Tên file phải chính là ký tự thật, ví dụ:
   - `「.png`
   - `」.png`
   - `？.png`
   - `！.png`
   - `：.png`
-- Dong `U+xxxx` ben duoi trong sample co the sai ma khong van de
-- Logic hien tai crop bo dong ma, chi so sanh hinh dang glyph
+- Dòng `U+xxxx` bên dưới trong sample có thể sai mà không vấn đề
+- Logic hiện tại crop bỏ dòng mã, chỉ so sánh hình dạng glyph
 
-## 3. Cac van de da gap va cach da sua
+## 3. Các vấn đề đã gặp và cách đã sửa
 
-### Van de A: `AttributeError: 'NoneType' object has no attribute 're_fetch_article'`
+### Vấn đề A: `AttributeError: 'NoneType' object has no attribute 're_fetch_article'`
 
-Nguyen nhan cu:
-- `MarketSpider.parse()` tao `FontPreview()`
-- Sau do da set `market_spider`
-- Nhung `FontPreview.preview()` lai tu tao mot `FontPreview()` moi
-- Ket qua la mat state va `market_spider = None`
+Nguyên nhân cũ:
+- `MarketSpider.parse()` tạo `FontPreview()`
+- Sau đó đã set `market_spider`
+- Nhưng `FontPreview.preview()` lại tự tạo một `FontPreview()` mới
+- Kết quả là mất state và `market_spider = None`
 
-Cach sua:
-- `preview()` phai dung chinh `self`, khong duoc tao instance moi
+Cách sửa:
+- `preview()` phải dùng chính `self`, không được tạo instance mới
 
-### Van de B: Chay xong khong con `font_preview.png` va `images/`
+### Vấn đề B: Chay xong không còn `font_preview.png` và `images/`
 
-Nguyen nhan cu:
-- `preview(..., remove_files=True)` xoa output sau khi parse
+Nguyên nhân cũ:
+- `preview(..., remove_files=True)` xóa output sau khi parse
 
-Cach sua:
-- Xoa file cu o dau moi lan crawl
-- Giu output sau khi crawl xong de debug
+Cách sửa:
+- Xóa file cũ ở đầu mỗi lần crawl
+- Giữ output sau khi crawl xong để debug
 
-Hien tai:
-- Lan crawl moi se cleanup file cu truoc
-- Output moi duoc giu lai
+Hiện tại:
+- Lần crawl mới sẽ cleanup file cũ trước
+- Output mới được giữ lại
 
-### Van de C: File `*.txt.temp` rong
+### Vấn đề C: File `*.txt.temp` rỗng
 
-Nguyen nhan:
-- Truoc day code doc `manuscriptData["pTagList"]`
-- Co luc Zhihu tra `pTagList = []`
-- Nhung noi dung that lai nam trong `manuscriptData["manuscript"]`
+Nguyên nhân:
+- Trước ngày code đọc `manuscriptData["pTagList"]`
+- Có lúc Zhihu trả `pTagList = []`
+- Nhưng nội dung thật lại nằm trong `manuscriptData["manuscript"]`
 
-Cach sua:
-- Neu `pTagList` rong, fallback sang parse HTML trong `manuscript`
+Cách sửa:
+- Nếu `pTagList` rỗng, fallback sang parse HTML trong `manuscript`
 
-Dau hieu nhan biet:
-- Log van bao `内容获取成功！`
-- Nhung file `.temp` co do dai `0`
-- Trong `market.html`, tim duoc:
+Dấu hiệu nhận biết:
+- Log vẫn báo `内容获取成功！`
+- Nhưng file `.temp` có độ dài `0`
+- Trong `market.html`, tìm được:
   - `pTagList":[]`
-  - nhung `manuscript":"<p>...</p>..."` lai co du lieu
+  - nhưng `manuscript":"<p>...</p>..."` lại có dữ liệu
 
-### Van de D: Chu Han dung, nhung dau cau sai
+### Vấn đề D: Chữ Hán đúng, nhưng dấu câu sai
 
-Nguyen nhan:
-- OCR nhan chu Han kha tot
-- Nhung cac dau cau va ky tu it net de bi nham thanh:
-  - chu Han khac
+Nguyên nhân:
+- OCR nhận chữ Hán khá tốt
+- Nhưng các dấu câu và ký tự ít nét thì bị nhầm thành:
+  - chữ Hán khác
   - Latin (`r`, `l`)
-  - so (`2`)
-  - ky tu khac (`-`)
+  - số (`2`)
+  - ký tự khác (`-`)
 
-Cach sua hien tai:
-1. Crop bo phan `U+xxxx` ben duoi anh glyph
-2. Tao nhieu variant anh de OCR
-3. Danh dau ket qua OCR dang nghi, vi du:
-   - rong
-   - dai hon 1 ky tu
-   - Latin/so/ky tu don net
-4. Neu dang nghi thi fallback sang so khop anh dac biet
-5. So khop uu tien `samples/` truoc
-6. Neu khong co sample thi moi dung render bang font he thong
-7. Neu sample match rat manh thi duoc override ca khi OCR tra ve chu Han
+Cách sửa hiện tại:
+1. Crop bỏ phần `U+xxxx` bên dưới ảnh glyph
+2. Tạo nhiều variant ảnh để OCR
+3. Đánh dấu kết quả OCR đáng nghi, ví dụ:
+   - rỗng
+   - dài hơn 1 ký tự
+   - Latin/số/ký tự đơn nét
+4. Nếu đáng nghi thì fallback sang so khớp ảnh đặc biệt
+5. So khớp ưu tiên `samples/` trước
+6. Nếu không có sample thì mới dùng render bằng font hệ thống
+7. Nếu sample match rất mạnh thì được override cả khi OCR trả về chữ Hán
 
-Vi du loi da gap:
-- `」` bi nham thanh `上`
+Ví dụ lỗi đã gặp:
+- `」` bị nhầm thành `上`
 
-Cach da xu ly:
-- Them sample override threshold de neu hinh dang rat giong `」` thi ep ket qua thanh `」`
+Cách đã xử lý:
+- Thêm sample override threshold để nếu hình dạng rất giống `」` thì ép kết quả thành `」`
 
-## 4. Quy trinh debug nhanh khi Zhihu doi nho
+## 4. Quy trình debug nhanh khi Zhihu đổi nhỏ
 
-Neu sau nay chuong trinh lai loi, lam theo dung thu tu nay.
+Nếu sau này chương trình lại lỗi, làm theo đúng thứ tự này.
 
-### Buoc 1: Kiem tra `market.html`
+### Bước 1: Kiểm tra `market.html`
 
-Can tra loi 3 cau hoi:
+Cần trả lời 3 câu hỏi:
 
-1. Co request thanh cong khong?
-2. Trich duoc `font.woff` khong?
-3. Noi dung nam o dau?
+1. Có request thành công không?
+2. Trích được `font.woff` không?
+3. Nội dung nằm ở đâu?
 
-Can tim trong `market.html`:
+Cần tìm trong `market.html`:
 - `id="resolved"`
 - `manuscriptData`
 - `pTagList`
 - `manuscript`
 - `@font-face`
 
-Neu `pTagList` rong:
-- Kiem tra `manuscript`
-- Neu `manuscript` co noi dung, parser phai fallback sang day
+Nếu `pTagList` rỗng:
+- Kiểm tra `manuscript`
+- Nếu `manuscript` có nội dung, parser phải fallback sang đây
 
-Neu ca `pTagList` va `manuscript` deu rong:
-- Kha nang cao Zhihu doi payload
-- Can tim field moi trong `manuscriptData`
+Nếu cả `pTagList` và `manuscript` đều rỗng:
+- Khả năng cao Zhihu đổi payload
+- Cần tìm field mới trong `manuscriptData`
 
-### Buoc 2: Kiem tra `font_preview.png`
+### Bước 2: Kiểm tra `font_preview.png`
 
-Mo file nay va doi chieu:
-- O vuong nao la dau cau
-- O vuong nao la chu Han
-- Ma U+ nao dang tro den glyph nao trong lan request nay
+Mở file này và đối chiếu:
+- Ô vuông nào là dấu câu
+- Ô vuông nào là chữ Hán
+- Mã U+ nào đang trỏ đến glyph nào trong lần request này
 
-Neu thay bang mat ma log map sai:
-- Loi nam o OCR/matching, khong phai o request
+Nếu thấy bằng mắt mà log map sai:
+- Lỗi nằm ở OCR/matching, không phải ở request
 
-### Buoc 3: Kiem tra `images/`
+### Bước 3: Kiểm tra `images/`
 
-Mo cac file dang nghi, nhat la:
+Mở các file đáng nghi, nhất là:
 - `300C.png`
 - `300D.png`
 - `3002.png`
@@ -191,66 +191,66 @@ Mo cac file dang nghi, nhat la:
 - `FF1A.png`
 - `FF1F.png`
 
-Can xac dinh:
-- Glyph that la gi
-- OCR dang tra ve gi
-- Sample co ton tai cho glyph do khong
+Cần xác định:
+- Glyph thật là gì
+- OCR đang trả về gì
+- Sample có tồn tại cho glyph đó không
 
-### Buoc 4: Kiem tra `samples/`
+### Bước 4: Kiểm tra `samples/`
 
-Neu dau cau moi lai hay nham:
-1. Chay crawl 1 lan
-2. Tim file glyph dung trong `images/`
-3. Copy vao `samples/`
-4. Doi ten thanh ky tu that, vi du `」.png`
+Nếu dấu câu mới lại hay nhầm:
+1. Chạy crawl 1 lần
+2. Tìm file glyph đúng trong `images/`
+3. Copy vào `samples/`
+4. Đổi tên thành ký tự thật, ví dụ `」.png`
 
-Luu y:
-- Khong can sua dong `U+xxxx`
-- Khong can Photoshop xoa ma o ben duoi, vi code da crop bo
+Lưu ý:
+- Không cần sửa dòng `U+xxxx`
+- Không cần Photoshop xóa mã ở bên dưới, vì code đã crop bỏ
 
-### Buoc 5: Kiem tra file ket qua
+### Bước 5: Kiểm tra file kết quả
 
-So sanh:
-- `*.txt.temp`: noi dung truoc khi thay ky tu
-- `*.txt`: noi dung sau khi thay ky tu
+So sánh:
+- `*.txt.temp`: nội dung trước khi thay ký tự
+- `*.txt`: nội dung sau khi thay ký tự
 
-Neu `.temp` da dung ma `.txt` sai:
-- Loi nam o mapping
+Nếu `.temp` đã đúng mà `.txt` sai:
+- Lỗi nằm ở mapping
 
-Neu `.temp` da rong:
-- Loi nam o parser noi dung
+Nếu `.temp` đã rỗng:
+- Lỗi nằm ở parser nội dung
 
-## 5. Nhung diem de vo nhat trong code
+## 5. Những điểm dễ vỡ nhất trong code
 
 ### `marketSpider/__init__.py`
 
-Cho de vo:
+Chỗ dễ vỡ:
 - `get_third_font_face()`
 - `getContent()`
 - `parse()`
 - `cleanup_generated_files()`
 
-Neu Zhihu doi HTML/CSS:
-- rat co the phai sua `get_third_font_face()`
+Nếu Zhihu đổi HTML/CSS:
+- Rất có thể phải sửa `get_third_font_face()`
 
-Neu Zhihu doi payload JSON:
-- rat co the phai sua `getContent()`
+Nếu Zhihu đổi payload JSON:
+- Rất có thể phải sửa `getContent()`
 
 ### `fontPreview/__init__.py`
 
-Cho de vo:
+Chỗ dễ vỡ:
 - `_extract_glyph_image()`
 - `_is_suspicious_result()`
 - `_load_sample_references()`
 - `_get_best_special_match()`
 - `recognize_image()`
 
-Neu dau cau bi nham:
-- uu tien sua trong khu vuc nay
+Nếu dấu câu bị nhầm:
+- Ưu tiên sửa trong khu vực này
 
-## 6. Cach mo rong bo `samples`
+## 6. Cách mở rộng bộ `samples`
 
-Nen bo sung sample cho cac ky tu de nham sau:
+Nên bổ sung sample cho các ký tự dễ nhầm sau:
 - `「`
 - `」`
 - `？`
@@ -258,7 +258,7 @@ Nen bo sung sample cho cac ky tu de nham sau:
 - `：`
 - `。`
 
-Co the bo sung them neu sau nay gap:
+Có thể bổ sung thêm nếu sau này gặp:
 - `，`
 - `、`
 - `；`
@@ -266,65 +266,65 @@ Co the bo sung them neu sau nay gap:
 - `）`
 - `《`
 - `》`
-- `“`
-- `”`
+- `"`
+- `"`
 - `…`
 
-Nguyen tac dat ten:
-- Ten file phai la ky tu that
-- Vi du `。.png`, `，.png`, `（.png`
+Nguyên tắc đặt tên:
+- Tên file phải là ký tự thật
+- Ví dụ `。.png`, `，.png`, `（.png`
 
-## 7. Dau hieu de biet dang hong o dau
+## 7. Dấu hiệu để biết đang hỏng ở đâu
 
-### Truong hop 1: Log dung, file `.txt` rong
-- Kiem tra `*.txt.temp`
-- Neu `.temp` rong: parser noi dung hong
-- Neu `.temp` co du lieu: replace/mapping hong
+### Trường hợp 1: Log đúng, file `.txt` rỗng
+- Kiểm tra `*.txt.temp`
+- Nếu `.temp` rỗng: parser nội dung hỏng
+- Nếu `.temp` có dữ liệu: replace/mapping hỏng
 
-### Truong hop 2: Chu Han dung, dau cau sai
-- OCR chu Han van on
-- Fallback/sample cho dau cau chua du
-- Uu tien bo sung `samples/`
+### Trường hợp 2: Chữ Hán đúng, dấu câu sai
+- OCR chữ Hán vẫn ổn
+- Fallback/sample cho dấu câu chưa đủ
+- Ưu tiên bổ sung `samples/`
 
-### Truong hop 3: Ca chu Han cung sai hang loat
-- Co the:
-  - OCR fail tren toan bo font
+### Trường hợp 3: Cả chữ Hán cũng sai hàng loạt
+- Có thể:
+  - OCR fail trên toàn bộ font
   - crop glyph sai
-  - `font.woff` da doi kieu
-  - trich nham `@font-face`
+  - `font.woff` đã đổi kiểu
+  - trích nhầm `@font-face`
 
-### Truong hop 4: Khong sinh `font.woff` hoac `images/`
-- Kiem tra `@font-face`
-- Kiem tra `get_third_font_face()`
-- Kiem tra `fontFile.split(",")`
+### Trường hợp 4: Không sinh `font.woff` hoặc `images/`
+- Kiểm tra `@font-face`
+- Kiểm tra `get_third_font_face()`
+- Kiểm tra `fontFile.split(",")`
 
-## 8. Cach sua toi thieu neu server doi nho
+## 8. Cách sửa tối thiểu nếu server đổi nhỏ
 
-Neu co loi nho trong tuong lai, uu tien sua theo thu tu:
+Nếu có lỗi nhỏ trong tương lai, ưu tiên sửa theo thứ tự:
 
-1. Sua parser noi dung trong `getContent()`
-2. Sua parser font trong `get_third_font_face()`
-3. Them hoac cap nhat `samples/`
-4. Dieu chinh nguong so khop trong `fontPreview/__init__.py`
-5. Chi sua OCR chu Han neu that su can thiet
+1. Sửa parser nội dung trong `getContent()`
+2. Sửa parser font trong `get_third_font_face()`
+3. Thêm hoặc cập nhật `samples/`
+4. Điều chỉnh ngưỡng so khớp trong `fontPreview/__init__.py`
+5. Chỉ sửa OCR chữ Hán nếu thật sự cần thiết
 
-Ly do:
-- Loi thuong gap nhat la doi payload JSON va nham dau cau
-- Chu Han hien tai da on hon nhieu so voi dau cau
+Lý do:
+- Lỗi thường gặp nhất là đổi payload JSON và nhầm dấu câu
+- Chữ Hán hiện tại đã ổn hơn nhiều so với dấu câu
 
-## 9. Checklist khi bao loi moi
+## 9. Checklist khi báo lỗi mới
 
-Khi can debug mot lan loi moi, hay luu lai:
+Khi cần debug một lần lỗi mới, hãy giữ lại:
 
-- URL da crawl
-- log day du
+- URL đã crawl
+- Log đầy đủ
 - `market.html`
 - `font.woff`
 - `font_preview.png`
-- thu muc `images/`
-- thu muc `samples/`
+- thư mục `images/`
+- thư mục `samples/`
 - file `.temp`
 - file `.txt`
 
-Neu co day du bo nay, gan nhu chac chan se phan tich va sua lai duoc nhanh.
+Nếu có đầy đủ bộ này, gần như chắc chắn sẽ phân tích và sửa lại được nhanh.
 

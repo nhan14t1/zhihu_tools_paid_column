@@ -165,6 +165,7 @@ zhihu_tools/
 - Detect suspicious OCR results
 - Compare punctuation glyphs against real images in `samples/`
 - Allow strong sample matches to override OCR
+- Avoid hardcoded remaps like `二 -> 一` unless a regression is proven with real sample data
 
 This is why punctuation such as `？`, `！`, `：`, `「`, `」` is now much more stable.
 

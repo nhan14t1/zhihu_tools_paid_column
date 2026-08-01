@@ -137,6 +137,7 @@ Cách sửa hiện tại:
 5. So khớp ưu tiên `samples/` trước
 6. Nếu không có sample thì mới dùng render bằng font hệ thống
 7. Nếu sample match rất mạnh thì được override cả khi OCR trả về chữ Hán
+8. Không thêm rule sửa tay kiểu `二 -> 一` nếu chưa có bằng chứng từ sample thật
 
 Ví dụ lỗi đã gặp:
 - `」` bị nhầm thành `上`
@@ -327,4 +328,3 @@ Khi cần debug một lần lỗi mới, hãy giữ lại:
 - file `.txt`
 
 Nếu có đầy đủ bộ này, gần như chắc chắn sẽ phân tích và sửa lại được nhanh.
-

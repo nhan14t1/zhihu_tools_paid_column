@@ -372,10 +372,8 @@ class FontPreview:
                 self.font_dict[key] = "\u4E00"
 
     def correct_font_dict(self):
-        for key, value in self.font_dict.items():
-            if value == "\u4E8C":
-                self.font_dict[key] = "\u4E00"
-                logging.info("字体映射表已检查并修正。")
+        # Keep this as a no-op unless we have a proven, data-backed correction rule.
+        logging.info("字体映射表已检查。")
 
     def preview(self, font_file_path, output_dir, remove_files=True):
         font_document = self.open_font(font_file_path)
